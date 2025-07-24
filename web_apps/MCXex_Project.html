@@ -1,0 +1,521 @@
+<html>
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>MCXex Project</title>
+
+    <link rel="stylesheet" href="https://js.arcgis.com/4.25/esri/themes/dark/main.css" />
+    <script type="module" src="https://js.arcgis.com/calcite-components/1.4.2/calcite.esm.js"></script>
+    <link rel="stylesheet" type="text/css" href="https://js.arcgis.com/calcite-components/1.4.2/calcite.css" />
+
+
+    <script src="https://js.arcgis.com/4.27/"></script>
+</head>
+<style>
+    html,
+
+    body {
+        display: flex;
+    }
+
+    calcite-loader {
+        align-self: center;
+        justify-self: center;
+    }
+
+    #viewDiv {
+        padding: 0;
+        margin: 0;
+        height: 100%;
+        width: 100%;
+    }
+
+    #header-title {
+        margin-left: 2rem;
+        margin-right: 1rem;
+    }
+
+    h2 {
+        font-size: 1.5rem;
+    }
+
+    #header-controls {
+        display: flex;
+        margin-inline-start: auto;
+        align-self: center;
+    }
+
+    .label-wrapper {
+        display: flex;
+        margin-inline: 1rem;
+        padding: 0.5rem;
+        border: 1px solid var(--calcite-ui-border-1);
+        cursor: pointer;
+    }
+
+    #dataTypeInput {
+        background-color: rgb(44, 43, 43);
+        width: max-content;
+        height: max-content;
+        position: absolute;
+        top: 1%;
+        right: 1vw;
+        font-size: 1.2vw;
+        color: white;
+        padding-top: 1.3vw;
+        padding-left: 1.3vw;
+        padding-right: 1.3vw;
+        padding-bottom: 1.0vw;
+    }
+
+    .calcite-theme-dark .esri-legend__layer-caption {
+        display: none;
+    }
+
+    .calcite-theme-dark .esri-legend .esri-legend__layer-cell--info {
+        color: "#f7f7f7";
+        font-size: 0.9rem;
+    }
+/* 
+    .esri-icon-non-visible::before {
+        content: '\e610' !important;
+        color: #969696 !important;
+    } */
+
+    .esri-icon-visible::before {
+        content: '\e611' !important;
+        background-color: #11a7fd;
+        color: white !important;
+    }
+</style>
+
+<body class="calcite-theme-dark">
+    <calcite-loader></calcite-loader>
+    <calcite-shell content-behind>
+        <div slot="header" id="header">
+            <h2 id="header-title" slot="header">MCXex ALIGNMENT MAP</h2>
+        </div>
+
+        <calcite-shell-panel slot="panel-start" display-mode="float" detached>
+            <!--Action Bar-->
+            <calcite-action-bar slot="action-bar">
+                <calcite-action data-action-id="layers" icon="layers" text="Layers"></calcite-action>
+                <calcite-action data-action-id="basemaps" icon="basemap" text="Basemaps"></calcite-action>
+            </calcite-action-bar>
+
+            <!--Action Bar Panel-->
+            <calcite-panel heading="Layers" height-scale="1" data-panel-id="layers" hidden>
+                <div id="layers-container"></div>
+            </calcite-panel>
+            <calcite-panel heading="Basemaps" height-scale="1" data-panel-id="basemaps" hidden>
+                <div id="basemaps-container">
+                </div>
+            </calcite-panel>
+        </calcite-shell-panel>
+
+        <div id="container">
+            <div id="viewDiv">
+                <!--Checkboxes-->
+                <div id="dataTypeInput">
+                    <!--<p>MCXex Alignment</p>-->
+                    <calcite-label layout="inline">
+                        <calcite-checkbox id="openCanal" icon="view-visible"></calcite-checkbox>
+                        MCX Extension via. Open Canal
+                    </calcite-label>
+                    <calcite-label layout="inline">
+                        <calcite-checkbox id="LLRN"></calcite-checkbox>
+                        MCX Extension via. LLRN
+                    </calcite-label>
+                    <calcite-label layout="inline">
+                        <calcite-checkbox id="BDS"></calcite-checkbox>
+                        MCX Extension via. Bacoor, Dasma, Silang
+                    </calcite-label>
+                    <calcite-label layout="inline">
+                        <calcite-checkbox id="PPP"></calcite-checkbox>
+                        DPWH-PPP
+                    </calcite-label>
+                </div>
+            </div>
+        </div>
+    </calcite-shell>
+</body>
+
+<script>
+    require([
+        "esri/views/SceneView",
+        "esri/Map",
+        "esri/layers/FeatureLayer",
+        "esri/widgets/BasemapGallery",
+        "esri/widgets/Legend",
+        "esri/rest/support/Query",
+        "esri/widgets/LayerList",
+        "esri/core/reactiveUtils",
+    ], function (
+        SceneView,
+        Map,
+        FeatureLayer,
+        BasemapGallery,
+        Legend,
+        Query,
+        LayerList,
+        reactiveUtils
+    ) {
+
+        var map = new Map({
+            basemap: "dark-gray-vector",
+            ground: "world-elevation",
+        });
+
+        var view = new SceneView({
+            map: map,
+            //center: [121.00, 14.35],
+            camera: {
+                position: [
+                    121.01, // lon
+                    13.85, // lat
+                    // elevation in meters
+                    45000],
+                tilt: 50,
+            },
+            qualityProfile: "high",
+            zoom: 11.5,
+
+            viewingMode: "local",
+            container: "viewDiv",
+            environment: {
+                background: {
+                    type: "color",
+                    color: [0, 0, 0, 1],
+                },
+            },
+
+        });
+        view.ui.components = [];
+
+
+        //////////////////// Layer Import ///////////////////////
+
+        const renderer = {
+            type: "unique-value",
+            field: "SymbolID",
+            uniqueValueInfos: [
+                {
+                    value: 0,
+                    label: "MCX Extension via. Open Canal",
+                    symbol: {
+                        type: "line-3d",
+                        symbolLayers: [
+                            {
+                                type: "path",
+                                profile: "quad",
+                                material: {
+                                    color: "#0070FF"
+                                },
+                                width: 50,
+                                height: 90,
+                                join: "round",
+                                cap: "round",
+                                anchor: "bottom",
+                                profileRotation: "heading"
+                            }
+                        ]
+                    },
+                },
+                {
+                    value: 1,
+                    label: "DPWH-PPP",
+                    symbol: {
+                        type: "line-3d",
+                        symbolLayers: [
+                            {
+                                type: "path",
+                                profile: "quad",
+                                material: {
+                                    color: "#FF7F7F"
+                                },
+                                width: 50,
+                                height: 90,
+                                join: "round",
+                                cap: "round",
+                                anchor: "bottom",
+                                profileRotation: "heading"
+                            }
+                        ]
+                    },
+                },
+                {
+                    value: 2,
+                    label: "MCX Extension via. LLRN",
+                    symbol: {
+                        type: "line-3d",
+                        symbolLayers: [
+                            {
+                                type: "path",
+                                profile: "quad",
+                                material: {
+                                    color: "#C500FF"
+                                },
+                                width: 50,
+                                height: 90,
+                                join: "round",
+                                cap: "round",
+                                anchor: "bottom",
+                                profileRotation: "heading"
+                            }
+                        ]
+                    },
+                },
+                {
+                    value: 3,
+                    label: "MCX Extension via. Bacoor, Dasma, Silang",
+                    symbol: {
+                        type: "line-3d",
+                        symbolLayers: [
+                            {
+                                type: "path",
+                                profile: "quad",
+                                material: {
+                                    color: "#FFAA00"
+                                },
+                                width: 50,
+                                height: 90,
+                                join: "round",
+                                cap: "round",
+                                anchor: "bottom",
+                                profileRotation: "heading"
+                            }
+                        ]
+                    },
+                },
+
+            ]
+        };
+
+
+        var mcxex_layer = new FeatureLayer({
+            url: "https://services8.arcgis.com/h9TUF6x5VzqLQaYx/arcgis/rest/services/MCXex_Alignment/FeatureServer",
+            elevationInfo: {
+                model: "on-the-ground",
+            },
+            renderer: renderer,
+        });
+        map.add(mcxex_layer);
+
+
+        //////////////////// Zoom To Layer ///////////////////////
+
+        function zoomToLayer(layer) {
+            var queryExtent = layer.createQuery();
+            return layer.queryExtent().then(function (response) {
+                view
+                    .goTo(response.extent,
+                        {
+                            speedFactor: 1,
+                        }
+                    )
+                    .catch(function (error) {
+                        if (error.name != "AbortError") {
+                            console.error(error);
+                        }
+                    });
+            });
+        }
+
+
+        //////////////////// Checkbox ///////////////////////
+
+
+        const dataTypeButton = document.getElementById("dataTypeInput");
+        const openCanal = document.getElementById("openCanal");
+        const LLRN = document.getElementById("LLRN");
+        const BDS = document.getElementById("BDS");
+        const PPP = document.getElementById("PPP");
+
+        
+        dataTypeButton.addEventListener("click", function (event) {
+            var openC_on = openCanal.checked;
+            let llrn_on = LLRN.checked;
+            let bds_on = BDS.checked;
+            let ppp_on = PPP.checked;
+
+
+            if (openC_on === true && llrn_on === false && bds_on === false && ppp_on === false) {
+                mcxex_layer.definitionExpression = "SymbolID = 0";
+                zoomToLayer(mcxex_layer);
+
+            } else if (openC_on === true && llrn_on === true && bds_on === false && ppp_on === false) {
+                mcxex_layer.definitionExpression = "SymbolID  IN (0,2)";
+                zoomToLayer(mcxex_layer);
+
+            } else if (openC_on === true && llrn_on === false && bds_on === true && ppp_on === false) {
+                mcxex_layer.definitionExpression = "SymbolID  IN (0,3)";
+                zoomToLayer(mcxex_layer);
+
+            } else if (openC_on === true && llrn_on === false && bds_on === false && ppp_on === true) {
+                mcxex_layer.definitionExpression = "SymbolID  IN (0,1)";
+                zoomToLayer(mcxex_layer);
+
+            } else if (openC_on === false && llrn_on === true && bds_on === false && ppp_on === false) {
+                mcxex_layer.definitionExpression = "SymbolID = 2";
+                zoomToLayer(mcxex_layer);
+
+            } else if (openC_on === false && llrn_on === true && bds_on === true && ppp_on === false) {
+                mcxex_layer.definitionExpression = "SymbolID  IN (2,3)";
+                zoomToLayer(mcxex_layer);
+
+            } else if (openC_on === false && llrn_on === true && bds_on === false && ppp_on === true) {
+                mcxex_layer.definitionExpression = "SymbolID  IN (2,1)";
+                zoomToLayer(mcxex_layer);
+
+            } else if (openC_on === false && llrn_on === false && bds_on === true && ppp_on === false) {
+                mcxex_layer.definitionExpression = "SymbolID = 3";
+                zoomToLayer(mcxex_layer);
+
+            } else if (openC_on === false && llrn_on === false && bds_on === true && ppp_on === true) {
+                mcxex_layer.definitionExpression = "SymbolID  IN (3,1)";
+                zoomToLayer(mcxex_layer);
+
+            } else if (openC_on === false && llrn_on === false && bds_on === false && ppp_on === true) {
+                mcxex_layer.definitionExpression = "SymbolID = 1";
+                zoomToLayer(mcxex_layer);
+
+                // three pair combination
+            } else if (openC_on === true && llrn_on === true && bds_on === true && ppp_on === false) {
+                mcxex_layer.definitionExpression = "SymbolID  IN (0,2,3)";
+                zoomToLayer(mcxex_layer);
+
+            } else if (openC_on === true && llrn_on === true && bds_on === false && ppp_on === true) {
+                mcxex_layer.definitionExpression = "SymbolID  IN (0,2,1)";
+                zoomToLayer(mcxex_layer);
+
+            } else if (openC_on === true && llrn_on === false && bds_on === true && ppp_on === true) {
+                mcxex_layer.definitionExpression = "SymbolID  IN (0,3,1)";
+                zoomToLayer(mcxex_layer);
+
+            } else if (openC_on === false && llrn_on === true && bds_on === true && ppp_on === true) {
+                mcxex_layer.definitionExpression = "SymbolID  IN (2,3,1)";
+                zoomToLayer(mcxex_layer);
+
+            } else if (openC_on === true && llrn_on === true && bds_on === true && ppp_on === true) {
+                mcxex_layer.definitionExpression = "SymbolID  IN (0,2,3,1)";
+                zoomToLayer(mcxex_layer);
+
+            } else if (openC_on === false && llrn_on === false && bds_on === false && ppp_on === false) {
+                mcxex_layer.definitionExpression = null;
+                zoomToLayer(mcxex_layer);
+
+            }
+        });
+
+
+        //////////////////// Widgets ///////////////////////
+
+
+        ////--------- Basemap Gallery --------////
+        const basemaps = new BasemapGallery({
+            view,
+            container: "basemaps-container",
+        });
+
+
+        var legend = new Legend({
+            view,
+            container: "legend-container",
+            layerInfos: [
+                {
+                    layer: mcxex_layer
+                }
+            ]
+        });
+
+        ////--------- LayerList --------////
+        const layerList = new LayerList({
+            view: view,
+            selectionEnabled: true,
+            container: "layers-container",
+            listItemCreatedFunction: function (event) {
+                const item = event.item;
+                if (item.layer.type != "group") { // don't show legend twice
+                    item.panel = {
+                        content: "legend",
+                        open: true
+                    };
+                }
+            },
+        });
+
+
+
+        //////////////////// ReactiveUtils to check for Layers visibility ///////////////////////
+        reactiveUtils.watch(
+            () => view.map.allLayers.forEach((layer) => {
+                if (layer.visible) {
+                    mcxex_layer.definitionExpression = null;
+                } else {
+                    openCanal.checked = openCanal.hidden;
+                    LLRN.checked = LLRN.hidden;
+                    BDS.checked = BDS.hidden;
+                    PPP.checked = PPP.hidden
+                }
+            }),
+        );
+
+
+
+        //////////////////// Calcite Action Bar ///////////////////////
+        let activeWidget;
+
+        const handleActionBarClick = ({ target }) => {
+            if (target.tagName !== "CALCITE-ACTION") {
+                return;
+            }
+
+            if (activeWidget) {
+                document.querySelector(
+                    `[data-action-id=${activeWidget}]`
+                ).active = false;
+                document.querySelector(
+                    `[data-panel-id=${activeWidget}]`
+                ).hidden = true;
+
+                // Close the progress time series chart when chart widget is closed
+                if (`${activeWidget}` === "charts") {
+                    //document.getElementById("land-checkbox").checked = false;
+                    timeSeriesChartDiv.style.display = "none";
+                }
+            }
+
+            const nextWidget = target.dataset.actionId;
+
+            if (nextWidget !== activeWidget) {
+                document.querySelector(
+                    `[data-action-id=${nextWidget}]`
+                ).active = true;
+                document.querySelector(
+                    `[data-panel-id=${nextWidget}]`
+                ).hidden = false;
+                activeWidget = nextWidget;
+
+            } else {
+                activeWidget = null;
+            }
+        };
+
+        // Action bar
+        document
+            .querySelector("calcite-action-bar")
+            .addEventListener("click", handleActionBarClick);
+        let actionBarExpanded = false;
+        document.addEventListener("calciteActionBarToggle", (event) => {
+            actionBarExpanded = !actionBarExpanded;
+            view.padding = {
+                left: actionBarExpanded ? 135 : 45,
+            };
+        });
+
+
+    });
+</script>
+
+</html>
